@@ -197,3 +197,37 @@ export const updateAddresses = async (req, res) => {
     });
   }
 };
+
+// @desc    Google OAuth Success Callback
+// @route   GET /api/auth/google/success
+// @access  Public
+export const googleAuthSuccess = async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication failed',
+      });
+    }
+
+    const token = generateToken(req.user._id);
+    const userData = {
+      _id: req.user._id,
+      name: req.user.name,
+      email: req.user.email,
+      avatar: req.user.avatar,
+      role: req.user.role,
+      isAdmin: req.user.role === 'admin',
+      addresses: req.user.addresses || [],
+      token,
+    };
+
+    // Redirect to frontend with user data
+    const frontendURL = process.env.FRONTEND_URL || 'http://localhost:5173';
+    res.redirect(`${frontendURL}/auth/google/callback?token=${token}&user=${encodeURIComponent(JSON.stringify(userData))}`);
+  } catch (error) {
+    console.error('Google auth success error:', error);
+    const frontendURL = process.env.FRONTEND_URL || 'http://localhost:5173';
+    res.redirect(`${frontendURL}/login?error=authentication_failed`);
+  }
+};

@@ -1,16 +1,20 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import session from 'express-session';
 import connectDB from './config/db.js';
+
+// Load environment variables FIRST before importing passport
+dotenv.config();
+
+// Import passport AFTER dotenv config
+import passport from './config/passport.js';
 
 // Import routes
 import authRoutes from './routes/auth.js';
 import productRoutes from './routes/products.js';
 import orderRoutes from './routes/orders.js';
 import contactRoutes from './routes/contact.js';
-
-// Load environment variables
-dotenv.config();
 
 // Initialize express app
 const app = express();
@@ -21,6 +25,24 @@ connectDB();
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Session middleware for passport
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || 'your-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    },
+  })
+);
+
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
 
 // CORS configuration
 const corsOptions = {
