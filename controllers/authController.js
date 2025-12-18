@@ -258,14 +258,6 @@ export const forgotPassword = async (req, res) => {
       });
     }
 
-    // Check if user is using Google OAuth
-    if (user.googleId) {
-      return res.status(400).json({
-        success: false,
-        message: 'This account uses Google sign-in. Password reset is not available.',
-      });
-    }
-
     // Generate reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
     
