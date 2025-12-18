@@ -53,6 +53,33 @@ const userSchema = new mongoose.Schema(
       enum: ['user', 'admin'],
       default: 'user',
     },
+    cart: [
+      {
+        productId: {
+          type: String,
+          required: true,
+        },
+        name: String,
+        image: String,
+        price: Number,
+        originalPrice: Number,
+        quantity: {
+          type: Number,
+          default: 1,
+        },
+        selectedSize: {
+          label: String,
+          price: Number,
+        },
+        category: String,
+      },
+    ],
+    resetPasswordToken: {
+      type: String,
+    },
+    resetPasswordExpire: {
+      type: Date,
+    },
   },
   {
     timestamps: true,

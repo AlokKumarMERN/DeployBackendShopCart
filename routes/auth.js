@@ -7,6 +7,9 @@ import {
   getProfile,
   updateAddresses,
   googleAuthSuccess,
+  forgotPassword,
+  resetPassword,
+  verifyResetToken,
 } from '../controllers/authController.js';
 import { authenticate } from '../middleware/auth.js';
 
@@ -31,6 +34,11 @@ router.post('/signup', signupValidation, signup);
 router.post('/login', loginValidation, login);
 router.get('/profile', authenticate, getProfile);
 router.put('/addresses', authenticate, updateAddresses);
+
+// Password reset routes
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password/:token', resetPassword);
+router.get('/verify-reset-token/:token', verifyResetToken);
 
 // Google OAuth routes - only enable if credentials are configured
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {

@@ -99,7 +99,7 @@ export const getUserOrders = async (req, res) => {
     let query = {};
     
     // If not admin, only show user's own orders
-    if (req.user.email !== 'adminalok@gmail.com') {
+    if (req.user.role !== 'admin') {
       query.user = req.user._id;
     }
     
@@ -140,7 +140,7 @@ export const getOrderById = async (req, res) => {
     }
 
     // Make sure order belongs to user or user is admin
-    if (order.user.toString() !== req.user._id.toString() && req.user.email !== 'adminalok@gmail.com') {
+    if (order.user.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to view this order',
@@ -169,7 +169,7 @@ export const updateOrderStatus = async (req, res) => {
     const { status, deliveryAgent, estimatedDeliveryDate } = req.body;
     
     // Check if user is admin
-    if (req.user.email !== 'adminalok@gmail.com') {
+    if (req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to update order status',
@@ -251,7 +251,7 @@ export const cancelOrder = async (req, res) => {
     }
 
     // Check if user owns this order or is admin
-    const isAdmin = req.user.email === 'adminalok@gmail.com';
+    const isAdmin = req.user.role === 'admin';
     const isOwner = order.user.toString() === req.user._id.toString();
     
     if (!isOwner && !isAdmin) {

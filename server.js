@@ -15,6 +15,7 @@ import authRoutes from './routes/auth.js';
 import productRoutes from './routes/products.js';
 import orderRoutes from './routes/orders.js';
 import contactRoutes from './routes/contact.js';
+import cartRoutes from './routes/cart.js';
 
 // Initialize express app
 const app = express();
@@ -57,6 +58,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/cart', cartRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {

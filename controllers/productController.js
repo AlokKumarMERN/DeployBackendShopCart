@@ -198,7 +198,7 @@ export const addProductReview = async (req, res) => {
 export const createProduct = async (req, res) => {
   try {
     // Check if user is admin
-    if (req.user.email !== 'adminalok@gmail.com') {
+    if (req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to create products',
@@ -233,7 +233,7 @@ export const createProduct = async (req, res) => {
 export const updateProduct = async (req, res) => {
   try {
     // Check if user is admin
-    if (req.user.email !== 'adminalok@gmail.com') {
+    if (req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to update products',
@@ -279,7 +279,7 @@ export const updateProduct = async (req, res) => {
 export const deleteProduct = async (req, res) => {
   try {
     // Check if user is admin
-    if (req.user.email !== 'adminalok@gmail.com') {
+    if (req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to delete products',
