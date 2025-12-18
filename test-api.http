@@ -1,0 +1,71 @@
+### Health Check
+GET http://localhost:5000/api/health
+
+### Get All Products
+GET http://localhost:5000/api/products
+
+### Sign Up New User
+POST http://localhost:5000/api/auth/signup
+Content-Type: application/json
+
+{
+  "name": "Test User",
+  "email": "testuser@example.com",
+  "password": "password123"
+}
+
+### Login
+POST http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "testuser@example.com",
+  "password": "password123"
+}
+
+### Get Profile (Replace YOUR_TOKEN with token from login)
+GET http://localhost:5000/api/auth/profile
+Authorization: Bearer YOUR_TOKEN
+
+### Submit Contact Feedback
+POST http://localhost:5000/api/contact/feedback
+Content-Type: application/json
+
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "message": "This is a test message"
+}
+
+### Get User Orders (Replace YOUR_TOKEN with token from login)
+GET http://localhost:5000/api/orders
+Authorization: Bearer YOUR_TOKEN
+
+### Create Order (Replace YOUR_TOKEN with token from login)
+POST http://localhost:5000/api/orders
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN
+
+{
+  "items": [
+    {
+      "product": "PRODUCT_ID_HERE",
+      "name": "Product Name",
+      "price": 29.99,
+      "quantity": 2,
+      "image": "image-url.jpg"
+    }
+  ],
+  "shippingAddress": {
+    "fullName": "John Doe",
+    "phone": "1234567890",
+    "street": "123 Main St",
+    "city": "New York",
+    "state": "NY",
+    "zipCode": "10001"
+  },
+  "itemsTotal": 59.98,
+  "deliveryFee": 5.00,
+  "otherCharges": 0,
+  "grandTotal": 64.98
+}

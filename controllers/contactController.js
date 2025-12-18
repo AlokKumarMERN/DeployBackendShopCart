@@ -55,3 +55,31 @@ export const getAllFeedback = async (req, res) => {
     });
   }
 };
+
+// @desc    Get feedback count
+// @route   GET /api/contact/feedback/count
+// @access  Public (for testing)
+export const getFeedbackCount = async (req, res) => {
+  try {
+    const total = await Feedback.countDocuments();
+    const byStatus = await Feedback.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } }
+    ]);
+
+    res.json({
+      success: true,
+      total,
+      byStatus: byStatus.reduce((acc, curr) => {
+        acc[curr._id] = curr.count;
+        return acc;
+      }, {})
+    });
+  } catch (error) {
+    console.error('Get feedback count error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
