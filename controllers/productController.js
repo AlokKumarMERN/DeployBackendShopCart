@@ -177,10 +177,17 @@ export const addProductReview = async (req, res) => {
     product.updateRating();
 
     await product.save();
+    
+    console.log('✅ Review added successfully. Total reviews:', product.reviews.length);
+    console.log('Updated average rating:', product.averageRating);
 
     res.status(201).json({
       success: true,
       message: 'Review added successfully',
+      data: {
+        averageRating: product.averageRating,
+        totalReviews: product.totalReviews,
+      }
     });
   } catch (error) {
     console.error('Add review error:', error);
