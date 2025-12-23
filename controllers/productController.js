@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Product from '../models/Product.js';
 import { processImageUrls } from '../utils/imageHelper.js';
 
@@ -151,6 +152,21 @@ export const addProductReview = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Product not found',
+      });
+    }
+
+    // Check if user has a delivered order for this product
+    const Order = mongoose.model('Order');
+    const deliveredOrder = await Order.findOne({
+      user: req.user._id,
+      orderStatus: 'Delivered',
+      'items.product': req.params.id,
+    });
+
+    if (!deliveredOrder) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only review products that you have received',
       });
     }
 

@@ -23,12 +23,6 @@ const sampleProducts = [
     ],
     stock: 0,
     featured: true,
-    averageRating: 4.5,
-    totalReviews: 128,
-    reviews: [
-      { userName: 'Priya Singh', rating: 5, comment: 'Amazing fragrance! Lasts all day.' },
-      { userName: 'Rahul Kumar', rating: 4, comment: 'Great value for money.' },
-    ],
   },
   {
     name: 'Mystic Night Perfume',
@@ -43,11 +37,6 @@ const sampleProducts = [
     ],
     stock: 0,
     featured: true,
-    averageRating: 4.8,
-    totalReviews: 95,
-    reviews: [
-      { userName: 'Anjali Sharma', rating: 5, comment: 'Love this scent!' },
-    ],
   },
   
   // Gifts
@@ -61,11 +50,6 @@ const sampleProducts = [
     sizes: [],
     stock: 25,
     featured: true,
-    averageRating: 4.7,
-    totalReviews: 82,
-    reviews: [
-      { userName: 'Vikram Patel', rating: 5, comment: 'Beautiful packaging, loved by everyone!' },
-    ],
   },
   {
     name: 'Personalized Photo Frame Set',
@@ -77,8 +61,6 @@ const sampleProducts = [
     sizes: [],
     stock: 40,
     featured: false,
-    averageRating: 4.3,
-    totalReviews: 56,
   },
 
   // Cosmetics
@@ -95,12 +77,6 @@ const sampleProducts = [
     ],
     stock: 0,
     featured: true,
-    averageRating: 4.6,
-    totalReviews: 143,
-    reviews: [
-      { userName: 'Neha Gupta', rating: 5, comment: 'My skin is glowing!' },
-      { userName: 'Pooja Reddy', rating: 4, comment: 'Good product, visible results.' },
-    ],
   },
   {
     name: 'Matte Lipstick Collection',
@@ -112,8 +88,6 @@ const sampleProducts = [
     sizes: [],
     stock: 50,
     featured: true,
-    averageRating: 4.4,
-    totalReviews: 112,
   },
 
   // Toys
@@ -127,11 +101,6 @@ const sampleProducts = [
     sizes: [],
     stock: 30,
     featured: true,
-    averageRating: 4.9,
-    totalReviews: 187,
-    reviews: [
-      { userName: 'Amit Verma', rating: 5, comment: 'My kids love it!' },
-    ],
   },
   {
     name: 'Remote Control Racing Car',
@@ -143,8 +112,6 @@ const sampleProducts = [
     sizes: [],
     stock: 20,
     featured: false,
-    averageRating: 4.5,
-    totalReviews: 74,
   },
 
   // Bangles
@@ -162,8 +129,6 @@ const sampleProducts = [
     ],
     stock: 0,
     featured: true,
-    averageRating: 4.2,
-    totalReviews: 93,
   },
   {
     name: 'Crystal Stone Bangle Set',
@@ -175,8 +140,6 @@ const sampleProducts = [
     sizes: [],
     stock: 35,
     featured: false,
-    averageRating: 4.6,
-    totalReviews: 68,
   },
 
   // Belts
@@ -195,8 +158,6 @@ const sampleProducts = [
     ],
     stock: 0,
     featured: true,
-    averageRating: 4.3,
-    totalReviews: 51,
   },
   {
     name: 'Canvas Casual Belt',
@@ -212,8 +173,6 @@ const sampleProducts = [
     ],
     stock: 0,
     featured: false,
-    averageRating: 4.1,
-    totalReviews: 38,
   },
 
   // Watches
@@ -227,11 +186,6 @@ const sampleProducts = [
     sizes: [],
     stock: 25,
     featured: true,
-    averageRating: 4.4,
-    totalReviews: 126,
-    reviews: [
-      { userName: 'Rajesh Mehta', rating: 4, comment: 'Looks premium, great quality.' },
-    ],
   },
   {
     name: 'Sports Digital Watch',
@@ -243,8 +197,6 @@ const sampleProducts = [
     sizes: [],
     stock: 30,
     featured: false,
-    averageRating: 4.1,
-    totalReviews: 89,
   },
 
   // Caps
@@ -258,8 +210,6 @@ const sampleProducts = [
     sizes: [],
     stock: 60,
     featured: false,
-    averageRating: 4.0,
-    totalReviews: 45,
   },
   {
     name: 'Trendy Snapback Cap',
@@ -271,8 +221,6 @@ const sampleProducts = [
     sizes: [],
     stock: 45,
     featured: true,
-    averageRating: 4.3,
-    totalReviews: 72,
   },
 
   // Birthday Items
@@ -286,8 +234,6 @@ const sampleProducts = [
     sizes: [],
     stock: 40,
     featured: true,
-    averageRating: 4.7,
-    totalReviews: 158,
   },
   {
     name: 'Happy Birthday LED Banner',
@@ -299,8 +245,6 @@ const sampleProducts = [
     sizes: [],
     stock: 50,
     featured: false,
-    averageRating: 4.2,
-    totalReviews: 64,
   },
 ];
 
@@ -327,13 +271,6 @@ const seedDatabase = async () => {
     console.log('�📦 Inserting products...');
     const products = await Product.insertMany(sampleProducts);
 
-    // Update ratings for products with reviews
-    for (const product of products) {
-      if (product.reviews.length > 0) {
-        product.updateRating();
-        await product.save();
-      }
-    }
 
     console.log(`✅ Successfully seeded ${products.length} products!`);
     console.log('\nSample Products by Category:');
