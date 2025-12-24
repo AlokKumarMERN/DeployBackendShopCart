@@ -4,8 +4,23 @@ import bcrypt from 'bcryptjs';
 import connectDB from './config/db.js';
 import Product from './models/Product.js';
 import User from './models/User.js';
+import Category from './models/Category.js';
+import Order from './models/Order.js';
 
 dotenv.config();
+
+// Categories to be seeded
+const categories = [
+  'Perfumes',
+  'Gifts',
+  'Cosmetics',
+  'Toys',
+  'Bangles',
+  'Belts',
+  'Watches',
+  'Caps',
+  'Birthday Items'
+];
 
 const sampleProducts = [
   // Perfumes
@@ -255,8 +270,18 @@ const seedDatabase = async () => {
     console.log('🗑️  Clearing existing data...');
     await Product.deleteMany({});
     await User.deleteMany({});
+    await Category.deleteMany({});
+    await Order.deleteMany({});
 
-    console.log('👤 Creating admin user...');
+    // Seed Categories
+    console.log('📁 Creating categories...');
+    const createdCategories = await Category.insertMany(
+      categories.map(name => ({ name }))
+    );
+    console.log(`✅ Created ${createdCategories.length} categories`);
+
+    // Seed Users
+    console.log('👤 Creating users...');
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash('admin123', salt);
     
@@ -268,24 +293,175 @@ const seedDatabase = async () => {
     });
     console.log(`✅ Admin user created: ${adminUser.email}`);
 
-    console.log('�📦 Inserting products...');
+    // Create test customer user
+    const customerPasswordHash = await bcrypt.hash('customer123', salt);
+    const customerUser = await User.create({
+      name: 'Test Customer',
+      email: 'customer@test.com',
+      passwordHash: customerPasswordHash,
+      role: 'user',
+      phone: '1234567890',
+      address: {
+        street: '123 Test Street',
+        city: 'Test City',
+        state: 'Test State',
+        zipCode: '123456',
+      },
+    });
+    console.log(`✅ Customer user created: ${customerUser.email}`);
+
+    // Seed Products
+    console.log('📦 Inserting products...');
     const products = await Product.insertMany(sampleProducts);
-
-
     console.log(`✅ Successfully seeded ${products.length} products!`);
-    console.log('\nSample Products by Category:');
+
+    // Create sample orders with delivered status for testing reviews
+    console.log('📋 Creating sample orders...');
     
-    const categories = [...new Set(products.map(p => p.category))];
-    categories.forEach(category => {
-      const count = products.filter(p => p.category === category).length;
-      console.log(`  - ${category}: ${count} products`);
+    const deliveredOrder = await Order.create({
+      user: customerUser._id,
+      items: [
+        {
+          product: products[0]._id, // Royal Eau de Parfum
+          name: products[0].name,
+          image: products[0].images[0],
+          price: products[0].sizes[0].price,
+          quantity: 1,
+          size: products[0].sizes[0].label,
+          subtotal: products[0].sizes[0].price,
+        },
+        {
+          product: products[8]._id, // Traditional Gold Plated Bangles
+          name: products[8].name,
+          image: products[8].images[0],
+          price: products[8].sizes[1].price,
+          quantity: 2,
+          size: products[8].sizes[1].label,
+          subtotal: products[8].sizes[1].price * 2,
+        },
+        {
+          product: products[16]._id, // Trendy Snapback Cap
+          name: products[16].name,
+          image: products[16].images[0],
+          price: Math.round(products[16].price * (1 - products[16].discountPercent / 100)),
+          quantity: 1,
+          subtotal: Math.round(products[16].price * (1 - products[16].discountPercent / 100)),
+        },
+      ],
+      shippingAddress: {
+        fullName: 'Test Customer',
+        phone: '1234567890',
+        addressLine1: '123 Test Street',
+        addressLine2: 'Apt 4B',
+        city: 'Test City',
+        state: 'Test State',
+        zipCode: '123456',
+      },
+      itemsTotal: products[0].sizes[0].price + (products[8].sizes[1].price * 2) + Math.round(products[16].price * (1 - products[16].discountPercent / 100)),
+      deliveryFee: 50,
+      otherCharges: 10,
+      grandTotal: products[0].sizes[0].price + (products[8].sizes[1].price * 2) + Math.round(products[16].price * (1 - products[16].discountPercent / 100)) + 60,
+      paymentMethod: 'COD',
+      paymentStatus: 'Paid',
+      orderStatus: 'Delivered',
+      deliveryAgent: {
+        name: 'John Delivery',
+        phone: '9876543210',
+      },
+      orderDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
+      deliveredAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
     });
 
-    console.log('\n📝 Admin Credentials:');
-    console.log('   Email: adminalok@gmail.com');
-    console.log('   Password: admin123');
+    const processingOrder = await Order.create({
+      user: customerUser._id,
+      items: [
+        {
+          product: products[6]._id, // Educational Building Blocks
+          name: products[6].name,
+          image: products[6].images[0],
+          price: Math.round(products[6].price * (1 - products[6].discountPercent / 100)),
+          quantity: 1,
+          subtotal: Math.round(products[6].price * (1 - products[6].discountPercent / 100)),
+        },
+        {
+          product: products[13]._id, // Classic Analog Watch
+          name: products[13].name,
+          image: products[13].images[0],
+          price: Math.round(products[13].price * (1 - products[13].discountPercent / 100)),
+          quantity: 1,
+          subtotal: Math.round(products[13].price * (1 - products[13].discountPercent / 100)),
+        },
+      ],
+      shippingAddress: {
+        fullName: 'Test Customer',
+        phone: '1234567890',
+        addressLine1: '123 Test Street',
+        city: 'Test City',
+        state: 'Test State',
+        zipCode: '123456',
+      },
+      itemsTotal: Math.round(products[6].price * (1 - products[6].discountPercent / 100)) + 
+                  Math.round(products[13].price * (1 - products[13].discountPercent / 100)),
+      deliveryFee: 50,
+      otherCharges: 10,
+      grandTotal: Math.round(products[6].price * (1 - products[6].discountPercent / 100)) + 
+                  Math.round(products[13].price * (1 - products[13].discountPercent / 100)) + 60,
+      paymentMethod: 'COD',
+      paymentStatus: 'Pending',
+      orderStatus: 'Processing',
+      estimatedDeliveryDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
+      orderDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+    });
+
+    console.log(`✅ Created 2 sample orders (1 delivered, 1 processing)`);
+
+    console.log('\n📊 Database Summary:');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log(`📁 Categories: ${createdCategories.length}`);
+    console.log(`📦 Products: ${products.length}`);
+    console.log(`👥 Users: 2 (1 admin, 1 customer)`);
+    console.log(`📋 Orders: 2 (1 delivered, 1 processing)`);
+    
+    console.log('\n📦 Products by Category:');
+    const categoryStats = [...new Set(products.map(p => p.category))];
+    categoryStats.forEach(category => {
+      const count = products.filter(p => p.category === category).length;
+      console.log(`  • ${category}: ${count} products`);
+    });
+
+    console.log('\n🔑 Test Credentials:');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('\n👨‍💼 Admin Account:');
+    console.log('   📧 Email: adminalok@gmail.com');
+    console.log('   🔒 Password: admin123');
+    console.log('   ✨ Features: Full admin access, manage products, categories, orders');
+    
+    console.log('\n👤 Customer Account:');
+    console.log('   📧 Email: customer@test.com');
+    console.log('   🔒 Password: customer123');
+    console.log('   ✨ Features: 1 delivered order (ready to review), 1 processing order');
+
+    console.log('\n📝 Available Features:');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('  ✅ Dynamic category management (add/delete categories)');
+    console.log('  ✅ Product management with multiple images and sizes');
+    console.log('  ✅ Order management with status tracking');
+    console.log('  ✅ Review system (customers can review delivered products)');
+    console.log('  ✅ User authentication (JWT-based)');
+    console.log('  ✅ Admin dashboard with statistics');
+    console.log('  ✅ Cart functionality');
+    console.log('  ✅ Search and filter products');
+
+    console.log('\n🎯 Next Steps:');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('  1. Start the backend: npm run dev');
+    console.log('  2. Start the frontend: cd ../DeployFrontendShopCart && npm run dev');
+    console.log('  3. Login as customer and test review feature!');
+    console.log('  4. Login as admin to manage products and categories!');
 
     console.log('\n🎉 Database seeding completed successfully!');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    
     process.exit(0);
   } catch (error) {
     console.error('❌ Error seeding database:', error);

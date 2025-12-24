@@ -28,17 +28,7 @@ const productSchema = new mongoose.Schema(
     category: {
       type: String,
       required: [true, 'Category is required'],
-      enum: [
-        'Perfumes',
-        'Gifts',
-        'Cosmetics',
-        'Toys',
-        'Bangles',
-        'Belts',
-        'Watches',
-        'Caps',
-        'Birthday Items',
-      ],
+      trim: true,
     },
     description: {
       type: String,

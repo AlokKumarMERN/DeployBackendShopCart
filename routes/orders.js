@@ -5,6 +5,7 @@ import {
   getOrderById,
   updateOrderStatus,
   cancelOrder,
+  getOrderStats,
 } from '../controllers/orderController.js';
 import { authenticate } from '../middleware/auth.js';
 
@@ -12,6 +13,7 @@ const router = express.Router();
 
 // All order routes are protected
 router.post('/', authenticate, createOrder);
+router.get('/admin/stats', authenticate, getOrderStats);
 router.get('/', authenticate, getUserOrders);
 router.get('/:id', authenticate, getOrderById);
 router.put('/:id/status', authenticate, updateOrderStatus);

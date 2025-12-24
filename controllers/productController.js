@@ -331,3 +331,39 @@ export const deleteProduct = async (req, res) => {
     });
   }
 };
+
+// @desc    Get product statistics (for admin dashboard)
+// @route   GET /api/products/stats
+// @access  Private (Admin only)
+export const getProductStats = async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to view stats',
+      });
+    }
+
+    // Use countDocuments for much faster queries
+    const [totalProducts, featuredProducts] = await Promise.all([
+      Product.countDocuments(),
+      Product.countDocuments({ featured: true }),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        totalProducts,
+        featuredProducts,
+      },
+    });
+  } catch (error) {
+    console.error('Get product stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};

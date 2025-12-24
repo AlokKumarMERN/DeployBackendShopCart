@@ -8,6 +8,7 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+  getProductStats,
 } from '../controllers/productController.js';
 import { authenticate } from '../middleware/auth.js';
 
@@ -23,6 +24,7 @@ router.get('/:id', getProductById);
 router.post('/:id/reviews', authenticate, addProductReview);
 
 // Admin routes
+router.get('/admin/stats', authenticate, getProductStats);
 router.post('/', authenticate, createProduct);
 router.put('/:id', authenticate, updateProduct);
 router.delete('/:id', authenticate, deleteProduct);

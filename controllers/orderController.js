@@ -316,3 +316,41 @@ export const cancelOrder = async (req, res) => {
     });
   }
 };
+
+// @desc    Get order statistics (for admin dashboard)
+// @route   GET /api/orders/stats
+// @access  Private (Admin only)
+export const getOrderStats = async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to view stats',
+      });
+    }
+
+    // Use countDocuments for much faster queries
+    const [totalOrders, pendingOrders, deliveredOrders] = await Promise.all([
+      Order.countDocuments(),
+      Order.countDocuments({ orderStatus: 'Pending' }),
+      Order.countDocuments({ orderStatus: 'Delivered' }),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        totalOrders,
+        pendingOrders,
+        deliveredOrders,
+      },
+    });
+  } catch (error) {
+    console.error('Get order stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
