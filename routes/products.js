@@ -4,6 +4,7 @@ import {
   getProductById,
   searchProducts,
   getProductsByCategory,
+  canReviewProduct,
   addProductReview,
   createProduct,
   updateProduct,
@@ -21,6 +22,7 @@ router.get('/category/:category', getProductsByCategory);
 router.get('/:id', getProductById);
 
 // Protected routes
+router.get('/:id/can-review', authenticate, canReviewProduct);
 router.post('/:id/reviews', authenticate, addProductReview);
 
 // Admin routes

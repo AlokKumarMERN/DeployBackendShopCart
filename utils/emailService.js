@@ -10,6 +10,12 @@ const createTransporter = () => {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD,
       },
+      // Optimize for faster delivery
+      pool: true, // Use pooled connections
+      maxConnections: 5, // Allow multiple concurrent connections
+      maxMessages: 100, // Messages per connection before reconnecting
+      rateDelta: 1000, // Rate limiting window (ms)
+      rateLimit: 10, // Max emails per rateDelta
     });
   }
   

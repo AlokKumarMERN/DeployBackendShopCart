@@ -276,25 +276,29 @@ export const forgotPassword = async (req, res) => {
     const frontendURL = process.env.FRONTEND_URL || 'http://localhost:5173';
     const resetUrl = `${frontendURL}/reset-password/${resetToken}`;
 
-    try {
-      await sendPasswordResetEmail(user.email, resetUrl);
-      
-      res.json({
-        success: true,
-        message: 'Password reset link sent to your email',
+    // Send email asynchronously (don't wait for it to complete)
+    // This makes the API response instant while email sends in background
+    sendPasswordResetEmail(user.email, resetUrl)
+      .then(() => {
+        console.log('✅ Password reset email sent successfully to:', user.email);
+      })
+      .catch(async (error) => {
+        console.error('❌ Failed to send password reset email:', error);
+        // Clear the reset token if email fails
+        try {
+          user.resetPasswordToken = undefined;
+          user.resetPasswordExpire = undefined;
+          await user.save();
+        } catch (saveError) {
+          console.error('Failed to clear reset token:', saveError);
+        }
       });
-    } catch (error) {
-      // If email fails, clear the reset token
-      user.resetPasswordToken = undefined;
-      user.resetPasswordExpire = undefined;
-      await user.save();
 
-      console.error('Email send error:', error);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to send reset email. Please try again later.',
-      });
-    }
+    // Respond immediately - don't wait for email
+    res.json({
+      success: true,
+      message: 'If an account exists with this email, a password reset link will be sent.',
+    });
   } catch (error) {
     console.error('Forgot password error:', error);
     res.status(500).json({

@@ -75,7 +75,7 @@ export const getProductById = async (req, res) => {
   }
 };
 
-// @desc    Search products by name
+// @desc    Search products by name and description
 // @route   GET /api/products/search
 // @access  Public
 export const searchProducts = async (req, res) => {
@@ -89,12 +89,15 @@ export const searchProducts = async (req, res) => {
       });
     }
 
-    // Search by name (case-insensitive)
+    // Search by name OR description (case-insensitive)
     const products = await Product.find({
-      name: { $regex: q, $options: 'i' },
+      $or: [
+        { name: { $regex: q, $options: 'i' } },
+        { description: { $regex: q, $options: 'i' } }
+      ]
     })
-      .limit(10)
-      .select('name images price discountPercent category');
+      .limit(15)
+      .select('name images price discountPercent category description');
 
     res.json({
       success: true,
@@ -132,6 +135,63 @@ export const getProductsByCategory = async (req, res) => {
     });
   } catch (error) {
     console.error('Get products by category error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Check if user can review a product
+// @route   GET /api/products/:id/can-review
+// @access  Private
+export const canReviewProduct = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found',
+      });
+    }
+
+    // Check if user has a delivered order for this product
+    const Order = mongoose.model('Order');
+    const deliveredOrder = await Order.findOne({
+      user: req.user._id,
+      orderStatus: 'Delivered',
+      'items.product': req.params.id,
+    });
+
+    if (!deliveredOrder) {
+      return res.json({
+        success: true,
+        canReview: false,
+        reason: 'You can only review products that you have received',
+      });
+    }
+
+    // Check if user already reviewed
+    const alreadyReviewed = product.reviews.find(
+      (review) => review.user && review.user.toString() === req.user._id.toString()
+    );
+
+    if (alreadyReviewed) {
+      return res.json({
+        success: true,
+        canReview: false,
+        reason: 'You have already reviewed this product',
+      });
+    }
+
+    res.json({
+      success: true,
+      canReview: true,
+    });
+  } catch (error) {
+    console.error('Can review check error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',
