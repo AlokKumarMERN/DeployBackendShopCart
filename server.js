@@ -18,6 +18,9 @@ import contactRoutes from './routes/contact.js';
 import cartRoutes from './routes/cart.js';
 import categoryRoutes from './routes/categories.js';
 import filterRoutes from './routes/filters.js';
+import couponRoutes from './routes/coupons.js';
+import customerRoutes from './routes/customers.js';
+import replacementRoutes from './routes/replacements.js';
 
 // Initialize express app
 const app = express();
@@ -63,6 +66,9 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/filters', filterRoutes);
+app.use('/api/coupons', couponRoutes);
+app.use('/api/customers', customerRoutes);
+app.use('/api/replacements', replacementRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {

@@ -24,6 +24,14 @@ const orderSchema = new mongoose.Schema(
         },
         size: String, // Selected size if applicable
         subtotal: Number,
+        category: String, // Store category for analytics
+        returnStatus: {
+          type: String,
+          enum: ['none', 'requested', 'approved', 'returned', 'refunded'],
+          default: 'none',
+        },
+        returnedAt: Date,
+        refundAmount: Number,
       },
     ],
     shippingAddress: {
@@ -64,6 +72,18 @@ const orderSchema = new mongoose.Schema(
     otherCharges: {
       type: Number,
       default: 0,
+    },
+    couponCode: {
+      type: String,
+      default: null,
+    },
+    couponDiscount: {
+      type: Number,
+      default: 0,
+    },
+    deliveryFeeRefunded: {
+      type: Boolean,
+      default: false,
     },
     grandTotal: {
       type: Number,

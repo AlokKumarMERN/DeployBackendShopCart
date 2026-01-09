@@ -409,3 +409,263 @@ export const verifyResetToken = async (req, res) => {
   }
 };
 
+// @desc    Get user wishlist
+// @route   GET /api/auth/wishlist
+// @access  Private
+export const getWishlist = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).populate('wishlist');
+    res.json({
+      success: true,
+      data: user.wishlist || [],
+    });
+  } catch (error) {
+    console.error('Get wishlist error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Add product to wishlist
+// @route   POST /api/auth/wishlist/:productId
+// @access  Private
+export const addToWishlist = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const user = await User.findById(req.user._id);
+
+    // Initialize wishlist if it doesn't exist
+    if (!user.wishlist) {
+      user.wishlist = [];
+    }
+
+    if (!user.wishlist.includes(productId)) {
+      user.wishlist.push(productId);
+      await user.save();
+    }
+
+    res.json({
+      success: true,
+      message: 'Product added to wishlist',
+      data: user.wishlist,
+    });
+  } catch (error) {
+    console.error('Add to wishlist error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Remove product from wishlist
+// @route   DELETE /api/auth/wishlist/:productId
+// @access  Private
+export const removeFromWishlist = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const user = await User.findById(req.user._id);
+
+    // Initialize wishlist if it doesn't exist
+    if (!user.wishlist) {
+      user.wishlist = [];
+    }
+
+    user.wishlist = user.wishlist.filter(id => id.toString() !== productId);
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Product removed from wishlist',
+      data: user.wishlist,
+    });
+  } catch (error) {
+    console.error('Remove from wishlist error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Check if product is in wishlist
+// @route   GET /api/auth/wishlist/check/:productId
+// @access  Private
+export const checkWishlist = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const user = await User.findById(req.user._id);
+    
+    // Handle undefined wishlist
+    const isInWishlist = user.wishlist ? user.wishlist.some(id => id.toString() === productId) : false;
+
+    res.json({
+      success: true,
+      data: { isInWishlist },
+    });
+  } catch (error) {
+    console.error('Check wishlist error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get user notifications
+// @route   GET /api/auth/notifications
+// @access  Private
+export const getNotifications = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    const notifications = user.notifications.sort((a, b) => b.createdAt - a.createdAt);
+    
+    res.json({
+      success: true,
+      data: notifications,
+    });
+  } catch (error) {
+    console.error('Get notifications error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Mark notification as read
+// @route   PUT /api/auth/notifications/:notificationId/read
+// @access  Private
+export const markNotificationRead = async (req, res) => {
+  try {
+    const { notificationId } = req.params;
+    const user = await User.findById(req.user._id);
+
+    const notification = user.notifications.id(notificationId);
+    if (notification) {
+      notification.isRead = true;
+      await user.save();
+    }
+
+    res.json({
+      success: true,
+      message: 'Notification marked as read',
+    });
+  } catch (error) {
+    console.error('Mark notification read error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Mark all notifications as read
+// @route   PUT /api/auth/notifications/read-all
+// @access  Private
+export const markAllNotificationsRead = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    user.notifications.forEach(notification => {
+      notification.isRead = true;
+    });
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'All notifications marked as read',
+    });
+  } catch (error) {
+    console.error('Mark all notifications read error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Delete notification
+// @route   DELETE /api/auth/notifications/:notificationId
+// @access  Private
+export const deleteNotification = async (req, res) => {
+  try {
+    const { notificationId } = req.params;
+    const user = await User.findById(req.user._id);
+
+    user.notifications = user.notifications.filter(
+      n => n._id.toString() !== notificationId
+    );
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Notification deleted',
+    });
+  } catch (error) {
+    console.error('Delete notification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get user settings
+// @route   GET /api/auth/settings
+// @access  Private
+export const getSettings = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    
+    res.json({
+      success: true,
+      data: user.settings || {},
+    });
+  } catch (error) {
+    console.error('Get settings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Update user settings
+// @route   PUT /api/auth/settings
+// @access  Private
+export const updateSettings = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    
+    user.settings = {
+      ...user.settings,
+      ...req.body,
+    };
+    await user.save();
+
+    res.json({
+      success: true,
+      data: user.settings,
+      message: 'Settings updated successfully',
+    });
+  } catch (error) {
+    console.error('Update settings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};

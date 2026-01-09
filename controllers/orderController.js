@@ -1,5 +1,6 @@
 import Order from '../models/Order.js';
 import Product from '../models/Product.js';
+import Coupon from '../models/Coupon.js';
 
 // @desc    Create new order
 // @route   POST /api/orders
@@ -12,6 +13,8 @@ export const createOrder = async (req, res) => {
       itemsTotal,
       deliveryFee,
       otherCharges,
+      couponCode,
+      couponDiscount,
       grandTotal,
     } = req.body;
 
@@ -58,9 +61,22 @@ export const createOrder = async (req, res) => {
       itemsTotal,
       deliveryFee: deliveryFee || 0,
       otherCharges: otherCharges || 0,
+      couponCode: couponCode || null,
+      couponDiscount: couponDiscount || 0,
       grandTotal,
       paymentMethod: 'COD',
     });
+
+    // If coupon was used, increment usage count
+    if (couponCode) {
+      await Coupon.findOneAndUpdate(
+        { code: couponCode.toUpperCase() },
+        { 
+          $inc: { usedCount: 1 },
+          $push: { usedBy: { user: req.user._id, usedAt: new Date() } }
+        }
+      );
+    }
 
     // Reduce stock
     for (const item of items) {
@@ -98,8 +114,12 @@ export const getUserOrders = async (req, res) => {
   try {
     let query = {};
     
-    // If not admin, only show user's own orders
-    if (req.user.role !== 'admin') {
+    // Check if admin wants all orders (for AdminOrders page) or just their own (for Profile page)
+    // Use ?all=true query param for admin to get all orders
+    const wantsAllOrders = req.query.all === 'true' && req.user.role === 'admin';
+    
+    // If not admin OR admin viewing their own orders in profile, filter by user
+    if (!wantsAllOrders) {
       query.user = req.user._id;
     }
     
@@ -347,6 +367,117 @@ export const getOrderStats = async (req, res) => {
     });
   } catch (error) {
     console.error('Get order stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Get invoice data for an order
+// @route   GET /api/orders/:id/invoice
+// @access  Private
+export const getOrderInvoice = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id)
+      .populate('user', 'name email')
+      .populate('items.product', 'name category');
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found',
+      });
+    }
+
+    // Make sure order belongs to user or user is admin
+    if (order.user._id.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to view this invoice',
+      });
+    }
+
+    // Import Replacement model to get refund data
+    const Replacement = (await import('../models/Replacement.js')).default;
+    
+    // Get replacements for this order to check for refunds
+    const replacements = await Replacement.find({ 
+      order: order._id,
+      status: { $in: ['Refunded', 'Completed', 'Refund Initiated'] }
+    });
+
+    // Calculate refund details
+    let totalRefundedAmount = 0;
+    let refundedItems = [];
+    let deliveryFeeRefunded = order.deliveryFeeRefunded || false;
+
+    replacements.forEach(rep => {
+      if (rep.status === 'Refunded' && rep.refund?.amount) {
+        totalRefundedAmount += rep.refund.amount;
+        refundedItems.push({
+          name: rep.item.name,
+          quantity: rep.item.quantity,
+          price: rep.item.price,
+          refundAmount: rep.refund.amount,
+          refundMethod: rep.refund.method,
+          refundedAt: rep.refund.refundedAt,
+          reason: rep.reason,
+        });
+      }
+    });
+
+    // If all items refunded and delivery fee was charged, add it to refund
+    if (deliveryFeeRefunded && order.deliveryFee > 0) {
+      totalRefundedAmount += order.deliveryFee;
+    }
+
+    // Generate invoice data
+    const invoiceData = {
+      invoiceNumber: `INV-${order._id.toString().slice(-8).toUpperCase()}`,
+      orderNumber: order._id.toString().slice(-8).toUpperCase(),
+      orderDate: order.orderDate || order.createdAt,
+      deliveryDate: order.deliveryDate,
+      customer: {
+        name: order.user.name,
+        email: order.user.email,
+      },
+      shippingAddress: order.shippingAddress,
+      items: order.items.map(item => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        size: item.size,
+        subtotal: item.subtotal || (item.price * item.quantity),
+        category: item.category || item.product?.category || 'N/A',
+        returnStatus: item.returnStatus || 'none',
+        refundAmount: item.refundAmount || 0,
+      })),
+      itemsTotal: order.itemsTotal,
+      deliveryFee: order.deliveryFee || 0,
+      deliveryFeeRefunded: deliveryFeeRefunded,
+      otherCharges: order.otherCharges || 0,
+      couponCode: order.couponCode,
+      couponDiscount: order.couponDiscount || 0,
+      grandTotal: order.grandTotal,
+      paymentMethod: order.paymentMethod,
+      paymentStatus: order.paymentStatus,
+      orderStatus: order.orderStatus,
+      cancellation: order.cancellation || null,
+      // Refund information
+      hasRefunds: refundedItems.length > 0,
+      refundedItems: refundedItems,
+      totalRefundedAmount: totalRefundedAmount,
+      netPayable: order.grandTotal - totalRefundedAmount,
+    };
+
+    res.json({
+      success: true,
+      data: invoiceData,
+    });
+  } catch (error) {
+    console.error('Get order invoice error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',

@@ -10,6 +10,16 @@ import {
   forgotPassword,
   resetPassword,
   verifyResetToken,
+  getWishlist,
+  addToWishlist,
+  removeFromWishlist,
+  checkWishlist,
+  getNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  deleteNotification,
+  getSettings,
+  updateSettings,
 } from '../controllers/authController.js';
 import { authenticate } from '../middleware/auth.js';
 
@@ -39,6 +49,22 @@ router.put('/addresses', authenticate, updateAddresses);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password/:token', resetPassword);
 router.get('/verify-reset-token/:token', verifyResetToken);
+
+// Wishlist routes
+router.get('/wishlist', authenticate, getWishlist);
+router.get('/wishlist/check/:productId', authenticate, checkWishlist);
+router.post('/wishlist/:productId', authenticate, addToWishlist);
+router.delete('/wishlist/:productId', authenticate, removeFromWishlist);
+
+// Notifications routes
+router.get('/notifications', authenticate, getNotifications);
+router.put('/notifications/read-all', authenticate, markAllNotificationsRead);
+router.put('/notifications/:notificationId/read', authenticate, markNotificationRead);
+router.delete('/notifications/:notificationId', authenticate, deleteNotification);
+
+// Settings routes
+router.get('/settings', authenticate, getSettings);
+router.put('/settings', authenticate, updateSettings);
 
 // Google OAuth routes - only enable if credentials are configured
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {

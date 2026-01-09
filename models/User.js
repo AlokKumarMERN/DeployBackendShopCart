@@ -74,6 +74,50 @@ const userSchema = new mongoose.Schema(
         category: String,
       },
     ],
+    wishlist: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Product',
+      },
+    ],
+    notifications: [
+      {
+        type: {
+          type: String,
+          enum: ['coupon', 'order', 'replacement', 'general'],
+          default: 'general',
+        },
+        title: String,
+        message: String,
+        data: mongoose.Schema.Types.Mixed,
+        isRead: {
+          type: Boolean,
+          default: false,
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+    settings: {
+      emailNotifications: {
+        type: Boolean,
+        default: true,
+      },
+      pushNotifications: {
+        type: Boolean,
+        default: true,
+      },
+      orderUpdates: {
+        type: Boolean,
+        default: true,
+      },
+      promotionalEmails: {
+        type: Boolean,
+        default: false,
+      },
+    },
     resetPasswordToken: {
       type: String,
     },
