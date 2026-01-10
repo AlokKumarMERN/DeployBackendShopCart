@@ -25,7 +25,7 @@ export const signup = async (req, res) => {
       });
     }
 
-    const { name, email, password } = req.body;
+    const { name, email, password, phone } = req.body;
 
     // Check if user already exists
     const userExists = await User.findOne({ email });
@@ -44,6 +44,7 @@ export const signup = async (req, res) => {
     const user = await User.create({
       name,
       email,
+      phone: phone || null,
       passwordHash,
     });
 
@@ -540,6 +541,28 @@ export const getNotifications = async (req, res) => {
   }
 };
 
+// @desc    Get unread notification count
+// @route   GET /api/auth/notifications/count
+// @access  Private
+export const getNotificationCount = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('notifications');
+    const unreadCount = user.notifications?.filter(n => !n.isRead).length || 0;
+    
+    res.json({
+      success: true,
+      data: { unreadCount },
+    });
+  } catch (error) {
+    console.error('Get notification count error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
 // @desc    Mark notification as read
 // @route   PUT /api/auth/notifications/:notificationId/read
 // @access  Private
@@ -630,7 +653,7 @@ export const getSettings = async (req, res) => {
     
     res.json({
       success: true,
-      data: user.settings || {},
+      data: { ...user.settings, phone: user.phone || '' },
     });
   } catch (error) {
     console.error('Get settings error:', error);
@@ -649,6 +672,12 @@ export const updateSettings = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
     
+    // Handle phone number separately (it's a user field, not settings)
+    if (req.body.phone !== undefined) {
+      user.phone = req.body.phone;
+      delete req.body.phone;
+    }
+    
     user.settings = {
       ...user.settings,
       ...req.body,
@@ -657,7 +686,7 @@ export const updateSettings = async (req, res) => {
 
     res.json({
       success: true,
-      data: user.settings,
+      data: { ...user.settings, phone: user.phone },
       message: 'Settings updated successfully',
     });
   } catch (error) {

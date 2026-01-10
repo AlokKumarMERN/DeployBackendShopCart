@@ -1,6 +1,8 @@
 import Order from '../models/Order.js';
 import Product from '../models/Product.js';
 import Coupon from '../models/Coupon.js';
+import User from '../models/User.js';
+import { sendOrderStatusEmail } from '../utils/emailService.js';
 
 // @desc    Create new order
 // @route   POST /api/orders
@@ -186,7 +188,7 @@ export const getOrderById = async (req, res) => {
 // @access  Private (Admin only)
 export const updateOrderStatus = async (req, res) => {
   try {
-    const { status, deliveryAgent, estimatedDeliveryDate } = req.body;
+    const { status, deliveryAgent, estimatedDeliveryDate, cancellationReason } = req.body;
     
     // Check if user is admin
     if (req.user.role !== 'admin') {
@@ -215,6 +217,21 @@ export const updateOrderStatus = async (req, res) => {
 
     order.orderStatus = status;
     
+    // Handle cancellation by admin
+    if (status === 'Cancelled') {
+      if (!cancellationReason) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cancellation reason is required',
+        });
+      }
+      order.cancellation = {
+        reason: cancellationReason,
+        cancelledAt: new Date(),
+        cancelledBy: 'admin',
+      };
+    }
+    
     // Update delivery agent if provided
     if (deliveryAgent) {
       order.deliveryAgent = deliveryAgent;
@@ -231,6 +248,61 @@ export const updateOrderStatus = async (req, res) => {
     }
     
     await order.save();
+    
+    // Get user for notifications and email
+    const orderUser = await User.findById(order.user);
+    
+    if (orderUser) {
+      // Create notification for user
+      const notificationMessages = {
+        'Pending': '🕐 Your order is pending confirmation.',
+        'Processing': '📦 Your order is being processed and will be shipped soon!',
+        'Shipped': '🚚 Great news! Your order has been shipped and is on its way!',
+        'Delivered': '✅ Your order has been delivered. Enjoy your purchase!',
+        'Cancelled': `❌ Your order has been cancelled.${cancellationReason ? ` Reason: ${cancellationReason}` : ''}`,
+      };
+      
+      const notification = {
+        type: 'order',
+        title: `Order ${status}`,
+        message: notificationMessages[status] || `Your order status has been updated to ${status}.`,
+        data: {
+          orderId: order._id,
+          orderNumber: order._id.toString().slice(-8).toUpperCase(),
+          status: status,
+        },
+        isRead: false,
+        createdAt: new Date(),
+      };
+      
+      // Add notification to user
+      await User.findByIdAndUpdate(order.user, {
+        $push: { notifications: { $each: [notification], $position: 0 } }
+      });
+      
+      // Send email for Delivered or Cancelled status
+      if (status === 'Delivered' || status === 'Cancelled') {
+        const orderData = {
+          orderId: order._id,
+          orderNumber: order._id.toString().slice(-8).toUpperCase(),
+          status: status,
+          grandTotal: order.grandTotal,
+          items: order.items,
+          cancellationReason: status === 'Cancelled' ? cancellationReason : null,
+        };
+        
+        // Send email in background (don't wait)
+        sendOrderStatusEmail(orderUser.email, orderUser.name, orderData)
+          .then(result => {
+            if (result.success) {
+              console.log(`📧 Order ${status} email sent to ${orderUser.email}`);
+            } else {
+              console.error(`❌ Failed to send order ${status} email:`, result.error);
+            }
+          })
+          .catch(err => console.error('❌ Email error:', err));
+      }
+    }
 
     res.json({
       success: true,

@@ -15,6 +15,7 @@ import {
   removeFromWishlist,
   checkWishlist,
   getNotifications,
+  getNotificationCount,
   markNotificationRead,
   markAllNotificationsRead,
   deleteNotification,
@@ -58,6 +59,7 @@ router.delete('/wishlist/:productId', authenticate, removeFromWishlist);
 
 // Notifications routes
 router.get('/notifications', authenticate, getNotifications);
+router.get('/notifications/count', authenticate, getNotificationCount);
 router.put('/notifications/read-all', authenticate, markAllNotificationsRead);
 router.put('/notifications/:notificationId/read', authenticate, markNotificationRead);
 router.delete('/notifications/:notificationId', authenticate, deleteNotification);

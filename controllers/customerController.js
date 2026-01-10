@@ -406,6 +406,16 @@ export const getCustomerStats = async (req, res) => {
     // Calculate total revenue from all customers
     const totalRevenue = allOrders.reduce((sum, o) => sum + (o.grandTotal || 0), 0);
     
+    // Calculate total replacement/refund value
+    const allReplacements = await Replacement.find({ status: { $in: ['Refunded', 'Completed'] } });
+    const totalReplacementValue = allReplacements.reduce((sum, r) => {
+      const itemTotal = r.items?.reduce((itemSum, item) => itemSum + ((item.price || 0) * (item.quantity || 1)), 0) || 0;
+      return sum + itemTotal;
+    }, 0);
+    
+    // Total Spent = Total Revenue - Replacement Value
+    const totalSpent = Math.round((totalRevenue - totalReplacementValue) * 100) / 100;
+    
     // Calculate total items sold
     const totalItemsSold = allOrders.reduce((sum, o) => 
       sum + o.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0);
@@ -485,6 +495,8 @@ export const getCustomerStats = async (req, res) => {
         customersWithCart,
         repeatCustomers,
         totalRevenue: Math.round(totalRevenue * 100) / 100,
+        totalReplacementValue: Math.round(totalReplacementValue * 100) / 100,
+        totalSpent,
         totalItemsSold,
         averageCustomerValue,
         averageOrderValue,

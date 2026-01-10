@@ -1,6 +1,7 @@
 import Coupon from '../models/Coupon.js';
 import User from '../models/User.js';
 import Order from '../models/Order.js';
+import { sendBulkCouponNotifications } from '../utils/emailService.js';
 
 // @desc    Get all coupons (Admin)
 // @route   GET /api/coupons/admin
@@ -70,6 +71,7 @@ export const createCoupon = async (req, res) => {
       isActive,
       targeting,
       notifyUsers,
+      sendEmail,
     } = req.body;
     
     // Check if coupon code already exists
@@ -83,8 +85,9 @@ export const createCoupon = async (req, res) => {
 
     // Find eligible users if targeting is enabled
     let eligibleUserIds = [];
+    let eligibleUsersData = []; // Full user data for email/SMS
     if (targeting && targeting.enabled) {
-      const users = await User.find({ role: 'user' }).select('_id createdAt wishlist');
+      const users = await User.find({ role: 'user' }).select('_id name email phone createdAt wishlist addresses settings');
       
       for (const user of users) {
         const orders = await Order.find({ user: user._id, orderStatus: { $ne: 'Cancelled' } });
@@ -116,6 +119,7 @@ export const createCoupon = async (req, res) => {
 
         if (matches) {
           eligibleUserIds.push(user._id);
+          eligibleUsersData.push(user);
         }
       }
     }
@@ -137,12 +141,26 @@ export const createCoupon = async (req, res) => {
       notifyUsers: notifyUsers || false,
     });
 
-    // Send notifications to eligible users if enabled
+    // Prepare coupon data for notifications
+    const couponData = {
+      code: coupon.code,
+      discountType: coupon.discountType,
+      discountValue: coupon.discountValue,
+      minOrderAmount: coupon.minOrderAmount,
+      endDate: coupon.endDate,
+      description: coupon.description,
+    };
+
+    // Track notification results
+    let notificationResults = null;
+
+    // Send in-app notifications to eligible users if enabled
     if (notifyUsers && eligibleUserIds.length > 0) {
       const notification = {
-        type: 'promo',
+        type: 'coupon',
         title: '🎉 New Coupon Available!',
         message: `Use code ${coupon.code} to get ${coupon.discountType === 'percentage' ? coupon.discountValue + '%' : '₹' + coupon.discountValue} off on your next order! Valid till ${new Date(coupon.endDate).toLocaleDateString('en-IN')}.`,
+        data: couponData,
         isRead: false,
         createdAt: new Date(),
       };
@@ -152,12 +170,30 @@ export const createCoupon = async (req, res) => {
         { $push: { notifications: { $each: [notification], $position: 0 } } }
       );
     }
+
+    // Send Email notifications (async - don't wait)
+    if (sendEmail && eligibleUsersData.length > 0) {
+      // Send notifications in background (don't block response)
+      sendBulkCouponNotifications(eligibleUsersData, couponData, {
+        sendEmail: true,
+      }).then((results) => {
+        console.log('📧 Bulk notification results:', results);
+      }).catch((error) => {
+        console.error('❌ Bulk notification error:', error);
+      });
+
+      notificationResults = {
+        sendingEmail: true,
+        targetedUsers: eligibleUsersData.length,
+      };
+    }
     
     res.status(201).json({
       success: true,
-      message: `Coupon created successfully${eligibleUserIds.length > 0 ? `. ${eligibleUserIds.length} users are eligible.` : ''}`,
+      message: `Coupon created successfully${eligibleUserIds.length > 0 ? `. ${eligibleUserIds.length} users are eligible.` : ''}${sendEmail ? ' Emails are being sent.' : ''}`,
       data: coupon,
       eligibleCount: eligibleUserIds.length,
+      notifications: notificationResults,
     });
   } catch (error) {
     console.error('Create coupon error:', error);
