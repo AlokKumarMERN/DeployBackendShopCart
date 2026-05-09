@@ -34,6 +34,11 @@ const orderSchema = new mongoose.Schema(
         refundAmount: Number,
       },
     ],
+    deliveryType: {
+      type: String,
+      enum: ['normal', 'exact'],
+      default: 'normal',
+    },
     shippingAddress: {
       fullName: {
         type: String,
@@ -48,6 +53,8 @@ const orderSchema = new mongoose.Schema(
         required: true,
       },
       addressLine2: String,
+      houseNo: String, // For exact delivery
+      colony: String, // For exact delivery
       city: {
         type: String,
         required: true,
@@ -60,6 +67,8 @@ const orderSchema = new mongoose.Schema(
         type: String,
         required: true,
       },
+      latitude: Number,
+      longitude: Number,
     },
     itemsTotal: {
       type: Number,
@@ -101,7 +110,7 @@ const orderSchema = new mongoose.Schema(
     },
     orderStatus: {
       type: String,
-      enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
+      enum: ['Pending', 'Processing', 'Shipped', 'Out for Delivery', 'Delivered', 'Cancelled'],
       default: 'Pending',
     },
     cancellation: {
@@ -115,6 +124,10 @@ const orderSchema = new mongoose.Schema(
     deliveryAgent: {
       name: String,
       phone: String,
+    },
+    deliveryBoy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'DeliveryBoy',
     },
     estimatedDeliveryDate: Date,
     orderDate: {

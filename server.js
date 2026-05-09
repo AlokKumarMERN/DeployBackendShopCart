@@ -21,6 +21,8 @@ import filterRoutes from './routes/filters.js';
 import couponRoutes from './routes/coupons.js';
 import customerRoutes from './routes/customers.js';
 import replacementRoutes from './routes/replacements.js';
+import deliveryBoyRoutes from './routes/deliveryBoys.js';
+import pinCodeRoutes from './routes/pincodes.js';
 
 // Initialize express app
 const app = express();
@@ -69,6 +71,8 @@ app.use('/api/filters', filterRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/replacements', replacementRoutes);
+app.use('/api/delivery-boys', deliveryBoyRoutes);
+app.use('/api/pincodes', pinCodeRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {

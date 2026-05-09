@@ -2,6 +2,7 @@ import Order from '../models/Order.js';
 import Product from '../models/Product.js';
 import Coupon from '../models/Coupon.js';
 import User from '../models/User.js';
+import DeliveryBoy from '../models/DeliveryBoy.js';
 import { sendOrderStatusEmail } from '../utils/emailService.js';
 
 // @desc    Create new order
@@ -18,6 +19,7 @@ export const createOrder = async (req, res) => {
       couponCode,
       couponDiscount,
       grandTotal,
+      deliveryType, // 'normal' or 'exact'
     } = req.body;
 
     if (!items || items.length === 0) {
@@ -25,6 +27,16 @@ export const createOrder = async (req, res) => {
         success: false,
         message: 'No order items provided',
       });
+    }
+
+    // Validate exact delivery address fields if deliveryType is exact
+    if (deliveryType === 'exact') {
+      if (!shippingAddress.houseNo || !shippingAddress.colony) {
+        return res.status(400).json({
+          success: false,
+          message: 'House number and colony are required for exact delivery',
+        });
+      }
     }
 
     // Validate products exist and have stock
@@ -67,6 +79,7 @@ export const createOrder = async (req, res) => {
       couponDiscount: couponDiscount || 0,
       grandTotal,
       paymentMethod: 'COD',
+      deliveryType: deliveryType || 'normal',
     });
 
     // If coupon was used, increment usage count
@@ -188,7 +201,7 @@ export const getOrderById = async (req, res) => {
 // @access  Private (Admin only)
 export const updateOrderStatus = async (req, res) => {
   try {
-    const { status, deliveryAgent, estimatedDeliveryDate, cancellationReason } = req.body;
+    const { status, deliveryAgent, estimatedDeliveryDate, cancellationReason, deliveryBoyId } = req.body;
     
     // Check if user is admin
     if (req.user.role !== 'admin') {
@@ -198,7 +211,7 @@ export const updateOrderStatus = async (req, res) => {
       });
     }
 
-    const validStatuses = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
+    const validStatuses = ['Pending', 'Processing', 'Shipped', 'Out for Delivery', 'Delivered', 'Cancelled'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
@@ -216,6 +229,31 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     order.orderStatus = status;
+    
+    // Assign delivery boy if provided
+    if (deliveryBoyId) {
+      const deliveryBoy = await DeliveryBoy.findById(deliveryBoyId);
+      if (!deliveryBoy) {
+        return res.status(404).json({
+          success: false,
+          message: 'Delivery boy not found',
+        });
+      }
+      
+      order.deliveryBoy = deliveryBoyId;
+      
+      // Add order to delivery boy's assigned orders
+      if (!deliveryBoy.assignedOrders.includes(order._id)) {
+        deliveryBoy.assignedOrders.push(order._id);
+        await deliveryBoy.save();
+      }
+      
+      // Also populate delivery agent for backward compatibility
+      order.deliveryAgent = {
+        name: deliveryBoy.name,
+        phone: deliveryBoy.phone,
+      };
+    }
     
     // Handle cancellation by admin
     if (status === 'Cancelled') {
@@ -471,6 +509,14 @@ export const getOrderInvoice = async (req, res) => {
       });
     }
 
+    // Allow invoice download only after delivery
+    if (order.orderStatus !== 'Delivered') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invoice is available only after the order is delivered',
+      });
+    }
+
     // Import Replacement model to get refund data
     const Replacement = (await import('../models/Replacement.js')).default;
     
@@ -505,15 +551,31 @@ export const getOrderInvoice = async (req, res) => {
       totalRefundedAmount += order.deliveryFee;
     }
 
+    const storeDetails = {
+      name: process.env.STORE_NAME || 'Alok General Store',
+      address:
+        process.env.STORE_ADDRESS ||
+        'Main Road, Barauli, Gopalganj, Bihar - 841405',
+      email: process.env.STORE_EMAIL || process.env.EMAIL_FROM || '',
+      phone: process.env.STORE_PHONE || '',
+      gstin: process.env.STORE_GSTIN || '',
+    };
+
     // Generate invoice data
     const invoiceData = {
       invoiceNumber: `INV-${order._id.toString().slice(-8).toUpperCase()}`,
+      invoiceDate: new Date(),
       orderNumber: order._id.toString().slice(-8).toUpperCase(),
       orderDate: order.orderDate || order.createdAt,
       deliveryDate: order.deliveryDate,
+      store: storeDetails,
       customer: {
         name: order.user.name,
         email: order.user.email,
+      },
+      orderMeta: {
+        orderId: order._id,
+        placeOfSupply: order.shippingAddress?.state || '',
       },
       shippingAddress: order.shippingAddress,
       items: order.items.map(item => ({
@@ -530,9 +592,11 @@ export const getOrderInvoice = async (req, res) => {
       deliveryFee: order.deliveryFee || 0,
       deliveryFeeRefunded: deliveryFeeRefunded,
       otherCharges: order.otherCharges || 0,
+      taxAmount: 0,
       couponCode: order.couponCode,
       couponDiscount: order.couponDiscount || 0,
       grandTotal: order.grandTotal,
+      deliveryType: order.deliveryType || 'normal',
       paymentMethod: order.paymentMethod,
       paymentStatus: order.paymentStatus,
       orderStatus: order.orderStatus,
@@ -550,6 +614,166 @@ export const getOrderInvoice = async (req, res) => {
     });
   } catch (error) {
     console.error('Get order invoice error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Export exact delivery orders to Excel
+// @route   GET /api/orders/export/exact-delivery
+// @access  Private/Admin
+export const exportExactDeliveryOrders = async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized',
+      });
+    }
+
+    const { status, deliveryBoyId } = req.query;
+
+    // Build query for exact delivery orders
+    const query = { deliveryType: 'exact' };
+    
+    if (status) {
+      query.orderStatus = status;
+    }
+    
+    if (deliveryBoyId) {
+      query.deliveryBoy = deliveryBoyId;
+    }
+
+    const orders = await Order.find(query)
+      .populate('user', 'name email phone')
+      .populate('deliveryBoy', 'deliveryBoyId name phone')
+      .sort({ createdAt: -1 });
+
+    // Prepare one row per order for Excel export
+    const excelData = [];
+
+    orders.forEach((order) => {
+      const productIds = order.items
+        .map((item) => item.product?.toString().slice(-8).toUpperCase())
+        .filter(Boolean);
+      const productNames = order.items
+        .map((item) => item.name)
+        .filter(Boolean);
+      const totalQuantity = order.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+
+      excelData.push({
+        'Order ID': order._id.toString().slice(-8).toUpperCase(),
+        'Product ID': productIds.length ? productIds.join(', ') : 'N/A',
+        'Product Name': productNames.join(', '),
+        'Quantity': totalQuantity,
+        'House No': order.shippingAddress.houseNo || '',
+        'Colony': order.shippingAddress.colony || '',
+        'Address Line 1': order.shippingAddress.addressLine1 || '',
+        'Address Line 2': order.shippingAddress.addressLine2 || '',
+        'City': order.shippingAddress.city,
+        'State': order.shippingAddress.state,
+        'Pin Code': order.shippingAddress.zipCode,
+        'Latitude': order.shippingAddress.latitude ?? '',
+        'Longitude': order.shippingAddress.longitude ?? '',
+        'Customer Name': order.shippingAddress.fullName,
+        'Customer Phone': order.shippingAddress.phone,
+        'Order Status': order.orderStatus,
+        'Delivery Boy ID': order.deliveryBoy?.deliveryBoyId || '',
+        'Delivery Boy Name': order.deliveryBoy?.name || '',
+        'Delivery Boy Phone': order.deliveryBoy?.phone || '',
+        'Order Date': new Date(order.createdAt).toLocaleDateString('en-IN'),
+        'Estimated Delivery': order.estimatedDeliveryDate ? new Date(order.estimatedDeliveryDate).toLocaleDateString('en-IN') : '',
+      });
+    });
+
+    res.json({
+      success: true,
+      data: excelData,
+      count: excelData.length,
+    });
+  } catch (error) {
+    console.error('Export exact delivery orders error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
+// @desc    Export normal delivery orders to Excel
+// @route   GET /api/orders/export/normal-delivery
+// @access  Private/Admin
+export const exportNormalDeliveryOrders = async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized',
+      });
+    }
+
+    const { status } = req.query;
+
+    // Build query for normal delivery orders
+    const query = { 
+      $or: [
+        { deliveryType: 'normal' },
+        { deliveryType: { $exists: false } } // For old orders without deliveryType
+      ]
+    };
+    
+    if (status) {
+      query.orderStatus = status;
+    }
+
+    const orders = await Order.find(query)
+      .populate('user', 'name email phone')
+      .sort({ createdAt: -1 });
+
+    // Prepare one row per order for Excel export
+    const excelData = [];
+
+    orders.forEach((order) => {
+      const productIds = order.items
+        .map((item) => item.product?.toString().slice(-8).toUpperCase())
+        .filter(Boolean);
+      const productNames = order.items
+        .map((item) => item.name)
+        .filter(Boolean);
+      const totalQuantity = order.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+
+      excelData.push({
+        'Order ID': order._id.toString().slice(-8).toUpperCase(),
+        'Product ID': productIds.length ? productIds.join(', ') : 'N/A',
+        'Product Name': productNames.join(', '),
+        'Quantity': totalQuantity,
+        'Address Line 1': order.shippingAddress.addressLine1 || '',
+        'Address Line 2': order.shippingAddress.addressLine2 || '',
+        'City': order.shippingAddress.city,
+        'State': order.shippingAddress.state,
+        'Pin Code': order.shippingAddress.zipCode,
+        'Latitude': order.shippingAddress.latitude ?? '',
+        'Longitude': order.shippingAddress.longitude ?? '',
+        'Customer Name': order.shippingAddress.fullName,
+        'Customer Phone': order.shippingAddress.phone,
+        'Order Status': order.orderStatus,
+        'Order Date': new Date(order.createdAt).toLocaleDateString('en-IN'),
+      });
+    });
+
+    res.json({
+      success: true,
+      data: excelData,
+      count: excelData.length,
+    });
+  } catch (error) {
+    console.error('Export normal delivery orders error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',
